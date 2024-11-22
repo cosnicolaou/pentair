@@ -12,7 +12,7 @@ import (
 
 func SupportedDevices() devices.SupportedDevices {
 	return devices.SupportedDevices{
-		"circuit": func(string, devices.Options) (devices.Device, error) { return nil, nil },
+		"circuit": NewDevice,
 	}
 }
 
@@ -25,7 +25,15 @@ func SupportedControllers() devices.SupportedControllers {
 func NewController(typ string, opts devices.Options) (devices.Controller, error) {
 	switch typ {
 	case "screenlogic-adapter":
-		return NewSLAdapter(opts), nil
+		return NewAdapter(opts), nil
 	}
 	return nil, fmt.Errorf("unsupported pentair screenlogic type %s", typ)
+}
+
+func NewDevice(typ string, opts devices.Options) (devices.Device, error) {
+	switch typ {
+	case "circuit":
+		return NewCircuit(opts), nil
+	}
+	return nil, fmt.Errorf("unsupported pentair screenlogic device type %s", typ)
 }

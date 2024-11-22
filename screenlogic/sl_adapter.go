@@ -7,6 +7,7 @@ package screenlogic
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"sync"
 	"time"
@@ -35,7 +36,7 @@ type Adapter struct {
 	manager *streamconn.Manager
 }
 
-func NewSLAdapter(opts devices.Options) *Adapter {
+func NewAdapter(opts devices.Options) *Adapter {
 	return &Adapter{
 		logger:  opts.Logger.With("protocol", "screenlogic"),
 		manager: streamconn.NewManager(),
@@ -68,30 +69,30 @@ func (pa *Adapter) Implementation() any {
 func (pa *Adapter) Operations() map[string]devices.Operation {
 	return map[string]devices.Operation{
 		"gettime": func(ctx context.Context, args devices.OperationArgs) error {
-			t, err := pa.GetTime(ctx)
+			t, err := protocol.GetTimeAndDate(ctx, pa.Session(ctx))
 			if err == nil {
 				fmt.Fprintf(args.Writer, "gettime: %v\n", t)
 			}
 			return err
 		},
 		"getversion": func(ctx context.Context, args devices.OperationArgs) error {
-			version, err := protocol.GetVersionInfo(ctx, pa.session)
+			version, err := protocol.GetVersionInfo(ctx, pa.Session(ctx))
 			if err == nil {
 				fmt.Fprintf(args.Writer, "version: %v\n", version)
 			}
 			return err
 		},
 		"getconfig": func(ctx context.Context, args devices.OperationArgs) error {
-			cfg, err := protocol.GetControllerConfig(ctx, pa.session)
+			cfg, err := protocol.GetControllerConfig(ctx, pa.Session(ctx))
 			if err == nil {
-				fmt.Fprintf(args.Writer, "config: %+v\n", cfg)
+				pa.FormatConfig(args.Writer, cfg)
 			}
 			return err
 		},
 		"getstatus": func(ctx context.Context, args devices.OperationArgs) error {
-			status, err := protocol.GetControllerStatus(ctx, pa.session)
+			status, err := protocol.GetControllerStatus(ctx, pa.Session(ctx))
 			if err == nil {
-				fmt.Fprintf(args.Writer, "status: %+v\n", status)
+				pa.FormatStatus(args.Writer, status)
 			}
 			return err
 		},
@@ -107,11 +108,6 @@ func (pa *Adapter) OperationsHelp() map[string]string {
 	}
 }
 
-func (pa *Adapter) GetTime(ctx context.Context) (time.Time, error) {
-	s := pa.Session(ctx)
-	return protocol.GetTimeAndDate(ctx, s)
-}
-
 func (pa *Adapter) Session(ctx context.Context) protocol.Session {
 	pa.mu.Lock()
 	defer pa.mu.Unlock()
@@ -125,7 +121,7 @@ func (pa *Adapter) Session(ctx context.Context) protocol.Session {
 	idle := netutil.NewIdleTimer(pa.KeepAlive)
 	session := protocol.NewSession(transport, idle)
 
-	// Connect.
+	// Connect, there is no actual authentication
 	if err := protocol.Login(ctx, session); err != nil {
 		session.Close(ctx)
 		return protocol.NewErrorSession(err)
@@ -136,4 +132,38 @@ func (pa *Adapter) Session(ctx context.Context) protocol.Session {
 
 func (pa *Adapter) Close(ctx context.Context) error {
 	return pa.manager.Close(ctx, time.Minute)
+}
+
+func (pa *Adapter) FormatConfig(out io.Writer, cfg protocol.ControllerConfig) {
+	if out == nil {
+		return
+	}
+	fmt.Fprintf(out, "Address  : %v\n", pa.IPAddress)
+	fmt.Fprintf(out, "Model    : %v\n", cfg.Model)
+	fmt.Fprintf(out, "ID       : %v\n", cfg.ID)
+	fmt.Fprintf(out, "Circuits : #%v\n", len(cfg.Circuits))
+	for _, c := range cfg.Circuits {
+		fmt.Fprintf(out, "  % 5v : %10v", c.ID, c.Name)
+		fmt.Fprintf(out, "  %20v % 20v\n", c.Function.String(), c.Interface.String())
+	}
+	fmt.Fprintf(out, "#Pumps   : %v\n", len(cfg.IntelliFlo))
+	for i, p := range cfg.IntelliFlo {
+		fmt.Fprintf(out, "  % 2v : %v\n", i, p.Value)
+	}
+}
+
+func (pa *Adapter) FormatStatus(out io.Writer, st protocol.ControllerStatus) {
+	if out == nil {
+		return
+	}
+	fmt.Fprintf(out, "Address  : %v\n", pa.IPAddress)
+	fmt.Fprintf(out, "State    : %v\n", st.State.String())
+	fmt.Fprintf(out, "Circuits : #%v\n", len(st.Circuits))
+	for _, c := range st.Circuits {
+		if c.State {
+			fmt.Fprintf(out, "  % 5v : On\n", c.ID)
+		} else {
+			fmt.Fprintf(out, "  % 5v : Off\n", c.ID)
+		}
+	}
 }

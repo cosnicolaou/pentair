@@ -41,6 +41,20 @@ const (
 	ControllerService
 )
 
+func (cs ControllerState) String() string {
+	switch cs {
+	case ControllerUnknownState:
+		return "Unknown"
+	case ControllerReady:
+		return "Ready"
+	case ControllerSync:
+		return "Sync"
+	case ControllerService:
+		return "Service"
+	}
+	return ""
+}
+
 type EquipmentFlags int
 
 const (
