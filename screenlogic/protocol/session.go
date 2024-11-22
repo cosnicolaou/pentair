@@ -7,6 +7,7 @@ package protocol
 import (
 	"sync"
 
+	"github.com/cosnicolaou/automation/net/netutil"
 	"github.com/cosnicolaou/automation/net/streamconn"
 	"github.com/cosnicolaou/pentair/screenlogic/slnet"
 )
@@ -22,10 +23,9 @@ type session struct {
 	id uint16
 }
 
-func NewSession(conn *slnet.Conn, idle *streamconn.IdleTimer) Session {
-	sess := streamconn.NewSession(conn, idle)
+func NewSession(conn *slnet.Conn, idle *netutil.IdleTimer) Session {
 	return &session{
-		Session: sess,
+		Session: streamconn.NewSession(conn, idle),
 	}
 }
 
@@ -34,4 +34,18 @@ func (s *session) NextID() uint16 {
 	defer s.mu.Unlock()
 	s.id++
 	return s.id
+}
+
+type errorSession struct {
+	streamconn.Session
+}
+
+func NewErrorSession(err error) Session {
+	return &errorSession{
+		Session: streamconn.NewErrorSession(err),
+	}
+}
+
+func (e *errorSession) NextID() uint16 {
+	return 0
 }
