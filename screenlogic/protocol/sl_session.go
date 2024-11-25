@@ -23,7 +23,7 @@ type session struct {
 	id uint16
 }
 
-func NewSession(conn *slnet.Conn, idle *netutil.IdleTimer) Session {
+func NewSession(conn *slnet.Conn, idle netutil.IdleReset) Session {
 	return &session{
 		Session: streamconn.NewSession(conn, idle),
 	}

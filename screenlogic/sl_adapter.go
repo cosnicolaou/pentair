@@ -14,7 +14,6 @@ import (
 
 	"github.com/cosnicolaou/automation/devices"
 	"github.com/cosnicolaou/automation/net/netutil"
-	"github.com/cosnicolaou/automation/net/streamconn"
 	"github.com/cosnicolaou/pentair/screenlogic/protocol"
 	"github.com/cosnicolaou/pentair/screenlogic/slnet"
 	"gopkg.in/yaml.v3"
@@ -32,14 +31,12 @@ type Adapter struct {
 	logger        *slog.Logger
 
 	mu      sync.Mutex
-	session protocol.Session
-	manager *streamconn.Manager
+	manager *netutil.IdleManager[protocol.Session, *Adapter]
 }
 
 func NewAdapter(opts devices.Options) *Adapter {
 	return &Adapter{
-		logger:  opts.Logger.With("protocol", "screenlogic"),
-		manager: streamconn.NewManager(),
+		logger: opts.Logger.With("protocol", "screenlogic"),
 	}
 }
 
@@ -108,30 +105,50 @@ func (pa *Adapter) OperationsHelp() map[string]string {
 	}
 }
 
+func (pa *Adapter) Connect(ctx context.Context, idle netutil.IdleReset) (protocol.Session, error) {
+	transport, err := slnet.Dial(ctx, pa.IPAddress, pa.Timeout, pa.logger)
+	if err != nil {
+		return nil, err
+	}
+	session := protocol.NewSession(transport, idle)
+	// Connect, there is no authentication for the screenlogic adapters
+	// on a local network.
+	if err := protocol.Login(ctx, session); err != nil {
+		session.Close(ctx)
+		return nil, err
+	}
+	return session, nil
+
+}
+
+func (pa *Adapter) Disconnect(ctx context.Context, sess protocol.Session) error {
+	return sess.Close(ctx)
+}
+
+func (pa *Adapter) Nil() protocol.Session {
+	return nil
+}
+
 func (pa *Adapter) Session(ctx context.Context) protocol.Session {
 	pa.mu.Lock()
 	defer pa.mu.Unlock()
-	if sess := pa.manager.Session(); sess != nil {
-		return sess.(protocol.Session)
+	if pa.manager == nil {
+		pa.manager = netutil.NewIdleManager(ctx, pa, netutil.NewIdleTimer(pa.KeepAlive))
 	}
-	transport, err := slnet.Dial(ctx, pa.IPAddress, pa.Timeout, pa.logger)
+	sess, err := pa.manager.Connection(ctx)
 	if err != nil {
 		return protocol.NewErrorSession(err)
 	}
-	idle := netutil.NewIdleTimer(pa.KeepAlive)
-	session := protocol.NewSession(transport, idle)
-
-	// Connect, there is no actual authentication
-	if err := protocol.Login(ctx, session); err != nil {
-		session.Close(ctx)
-		return protocol.NewErrorSession(err)
-	}
-	pa.manager.ManageSession(session, idle)
-	return session
+	return sess
 }
 
 func (pa *Adapter) Close(ctx context.Context) error {
-	return pa.manager.Close(ctx, time.Minute)
+	pa.mu.Lock()
+	defer pa.mu.Unlock()
+	if pa.manager == nil {
+		return nil
+	}
+	return pa.manager.Stop(ctx, time.Minute)
 }
 
 func (pa *Adapter) FormatConfig(out io.Writer, cfg protocol.ControllerConfig) {
