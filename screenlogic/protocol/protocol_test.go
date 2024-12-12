@@ -6,7 +6,6 @@ package protocol_test
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 
 	"github.com/cosnicolaou/pentair/screenlogic/protocol"
@@ -41,12 +40,4 @@ func TestMessage(t *testing.T) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 
-	for _, i := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9} {
-		r := i % 4
-		if r != 0 {
-			r = 4 - r
-		}
-		fmt.Printf("i: %d, r: %d\n", i, i+r)
-	}
-	t.Fail()
 }
