@@ -21,41 +21,35 @@ import (
 
 type AdapterConfig struct {
 	IPAddress string        `yaml:"ip_address"`
-	Timeout   time.Duration `yaml:"timeout"`
 	KeepAlive time.Duration `yaml:"keep_alive"`
 }
 
 type Adapter struct {
-	devices.ControllerConfigCommon
-	AdapterConfig `yaml:",inline"`
-	logger        *slog.Logger
+	devices.ControllerBase[AdapterConfig]
 
-	mu      sync.Mutex
-	manager *netutil.IdleManager[protocol.Session, *Adapter]
+	logger *slog.Logger
+
+	mu sync.Mutex
+	// manager *netutil.IdleManager[protocol.Session, *Adapter]
+	ondemand *netutil.OnDemandConnection[protocol.Session, *Adapter]
 }
 
 func NewAdapter(opts devices.Options) *Adapter {
-	return &Adapter{
+	pa := &Adapter{
 		logger: opts.Logger.With("protocol", "screenlogic"),
 	}
-}
-
-func (pa *Adapter) SetConfig(c devices.ControllerConfigCommon) {
-	pa.ControllerConfigCommon = c
-}
-
-func (pa *Adapter) Config() devices.ControllerConfigCommon {
-	return pa.ControllerConfigCommon
-}
-
-func (pa *Adapter) CustomConfig() any {
-	return pa.AdapterConfig
+	pa.ondemand = netutil.NewOnDemandConnection(pa, protocol.NewErrorSession)
+	return pa
 }
 
 func (pa *Adapter) UnmarshalYAML(node *yaml.Node) error {
-	if err := node.Decode(&pa.AdapterConfig); err != nil {
+	if err := node.Decode(&pa.ControllerConfigCustom); err != nil {
 		return err
 	}
+	if pa.ControllerConfigCustom.KeepAlive == 0 {
+		return fmt.Errorf("keep_alive must be specified")
+	}
+	pa.ondemand.SetKeepAlive(pa.ControllerConfigCustom.KeepAlive)
 	return nil
 }
 
@@ -106,7 +100,7 @@ func (pa *Adapter) OperationsHelp() map[string]string {
 }
 
 func (pa *Adapter) Connect(ctx context.Context, idle netutil.IdleReset) (protocol.Session, error) {
-	transport, err := slnet.Dial(ctx, pa.IPAddress, pa.Timeout, pa.logger)
+	transport, err := slnet.Dial(ctx, pa.ControllerConfigCustom.IPAddress, pa.Timeout, pa.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -125,37 +119,19 @@ func (pa *Adapter) Disconnect(ctx context.Context, sess protocol.Session) error 
 	return sess.Close(ctx)
 }
 
-func (pa *Adapter) Nil() protocol.Session {
-	return nil
-}
-
 func (pa *Adapter) Session(ctx context.Context) protocol.Session {
-	pa.mu.Lock()
-	defer pa.mu.Unlock()
-	if pa.manager == nil {
-		pa.manager = netutil.NewIdleManager(ctx, pa, netutil.NewIdleTimer(pa.KeepAlive))
-	}
-	sess, err := pa.manager.Connection(ctx)
-	if err != nil {
-		return protocol.NewErrorSession(err)
-	}
-	return sess
+	return pa.ondemand.Connection(ctx)
 }
 
 func (pa *Adapter) Close(ctx context.Context) error {
-	pa.mu.Lock()
-	defer pa.mu.Unlock()
-	if pa.manager == nil {
-		return nil
-	}
-	return pa.manager.Stop(ctx, time.Minute)
+	return pa.ondemand.Close(ctx)
 }
 
 func (pa *Adapter) FormatConfig(out io.Writer, cfg protocol.ControllerConfig) {
 	if out == nil {
 		return
 	}
-	fmt.Fprintf(out, "Address  : %v\n", pa.IPAddress)
+	fmt.Fprintf(out, "Address  : %v\n", pa.ControllerConfigCustom.IPAddress)
 	fmt.Fprintf(out, "Model    : %v\n", cfg.Model)
 	fmt.Fprintf(out, "ID       : %v\n", cfg.ID)
 	fmt.Fprintf(out, "Circuits : #%v\n", len(cfg.Circuits))
@@ -173,7 +149,7 @@ func (pa *Adapter) FormatStatus(out io.Writer, st protocol.ControllerStatus) {
 	if out == nil {
 		return
 	}
-	fmt.Fprintf(out, "Address  : %v\n", pa.IPAddress)
+	fmt.Fprintf(out, "Address  : %v\n", pa.ControllerConfigCustom.IPAddress)
 	fmt.Fprintf(out, "State    : %v\n", st.State.String())
 	fmt.Fprintf(out, "Circuits : #%v\n", len(st.Circuits))
 	for _, c := range st.Circuits {

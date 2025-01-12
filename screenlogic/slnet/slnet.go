@@ -77,6 +77,10 @@ func (tc *Conn) Send(ctx context.Context, buf []byte) (int, error) {
 	return n, err
 }
 
+func (tc *Conn) SendSensitive(ctx context.Context, buf []byte) (int, error) {
+	return tc.Send(ctx, buf)
+}
+
 func (tc *Conn) readResponse() (MessageHeader, []byte, error) {
 	buf := make([]byte, 1024)
 	n, err := io.ReadAtLeast(tc.conn, buf, MessageHeaderSize)
