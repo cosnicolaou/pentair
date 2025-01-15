@@ -23,16 +23,14 @@ func SupportedControllers() devices.SupportedControllers {
 }
 
 func NewController(typ string, opts devices.Options) (devices.Controller, error) {
-	switch typ {
-	case "screenlogic-adapter":
+	if typ == "screenlogic-adapter" {
 		return NewAdapter(opts), nil
 	}
 	return nil, fmt.Errorf("unsupported pentair screenlogic type %s", typ)
 }
 
 func NewDevice(typ string, opts devices.Options) (devices.Device, error) {
-	switch typ {
-	case "circuit":
+	if typ == "circuit" {
 		return NewCircuit(opts), nil
 	}
 	return nil, fmt.Errorf("unsupported pentair screenlogic device type %s", typ)

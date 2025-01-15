@@ -59,17 +59,17 @@ type EquipmentFlags int
 
 const (
 	Solar EquipmentFlags = 1 << iota
-	Solar_Heat_Pump
+	SolarHeatPump
 	Chlorinator
 	IntelliBright
-	IntelliFlo_0
-	IntelliFlo_1
-	IntelliFlo_2
-	IntelliFlo_3
-	IntelliFlo_4
-	IntelliFlo_5
-	IntelliFlo_6
-	IntelliFlo_7
+	IntelliFlo0
+	IntelliFlo1
+	IntelliFlo2
+	IntelliFlo3
+	IntelliFlo4
+	IntelliFlo5
+	IntelliFlo6
+	IntelliFlo7
 	NoSpecialLights
 	Cooling
 	MagicStream
@@ -131,46 +131,33 @@ const (
 	CircuitDimmer25
 )
 
+var (
+	cfLookup = []string{
+		"Generic",
+		"Spa",
+		"Pool",
+		"Second Spa",
+		"Second Pool",
+		"Master Cleaner",
+		"Cleaner",
+		"Light",
+		"Dimmer",
+		"SAM Light",
+		"SAL Light",
+		"Photo Next Gen",
+		"Color Wheel",
+		"Valve",
+		"Spillway",
+		"Floor Cleaner",
+		"IntelliBrite",
+		"Magic Stream",
+		"Dimmer 25",
+	}
+)
+
 func (cf CircuitFunction) String() string {
-	switch cf {
-	case CircuitGeneric:
-		return "Generic"
-	case CircuitSpa:
-		return "Spa"
-	case CircuitPool:
-		return "Pool"
-	case CircuitSecondSpa:
-		return "Second Spa"
-	case CircuitSecondPool:
-		return "Second Pool"
-	case CircuitMasterCleaner:
-		return "Master Cleaner"
-	case CircuitCleaner:
-		return "Cleaner"
-	case CircuitLight:
-		return "Light"
-	case CircuitDimmer:
-		return "Dimmer"
-	case CircuitSAMLight:
-		return "SAM Light"
-	case CircuitSALLight:
-		return "SAL Light"
-	case CircuitPhotoNextGen:
-		return "Photo Next Gen"
-	case CircuitColorWheel:
-		return "Color Wheel"
-	case CircuitValve:
-		return "Valve"
-	case CircuitSpillway:
-		return "Spillway"
-	case CircuitFloorCleaner:
-		return "Floor Cleaner"
-	case CircuitIntelliBrite:
-		return "IntelliBrite"
-	case CircuitMagicStream:
-		return "Magic Stream"
-	case CircuitDimmer25:
-		return "Dimmer 25"
+	if cf >= 0 && int(cf) < len(cfLookup) {
+		return cfLookup[cf]
 	}
 	return ""
 }
@@ -187,22 +174,21 @@ const (
 	InterfaceInvalid
 )
 
+var (
+	ciLookup = []string{
+		"Pool",
+		"Spa",
+		"Features",
+		"Sync Swim",
+		"Lights",
+		"Don't Show",
+		"Invalid",
+	}
+)
+
 func (ifc CircuitInterface) String() string {
-	switch ifc {
-	case InterfacePool:
-		return "Pool"
-	case InterfaceSpa:
-		return "Spa"
-	case InterfaceFeatures:
-		return "Features"
-	case InterfaceSyncSwim:
-		return "Sync Swim"
-	case InterfaceLights:
-		return "Lights"
-	case InterfaceDontShow:
-		return "Don't Show"
-	case InterfaceInvalid:
-		return "Invalid"
+	if ifc >= 0 && int(ifc) < len(ciLookup) {
+		return ciLookup[ifc]
 	}
 	return ""
 }

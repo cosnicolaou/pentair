@@ -30,7 +30,7 @@ func Login(ctx context.Context, s Session) error {
 	pl = AppendUint32(pl, 0)
 	pl = AppendString(pl, loginClient)
 	pl = AppendString(pl, loginPasswd)
-	pl = AppendUint32(pl, 0)
+	AppendUint32(pl, 0)
 
 	// Send the raw connect string to kick start the session
 	// and then the login message.

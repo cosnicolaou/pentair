@@ -72,7 +72,7 @@ func DecodeControllerConfig(rm Message) (ControllerConfig, error) {
 	pl, ok = DecodeUint32(pl, ok, &id)
 	cfg.ID = int(id)
 	pl, ok = DecodeSkip(pl, ok, 4) // Skip setpoint data.
-	pl, ok = DecodeSkip(pl, ok, 1) // Skip celcius/faherenheit data.
+	pl, ok = DecodeSkip(pl, ok, 1) // Skip celsius/faherenheit data.
 	var cv, hw uint8
 	pl, ok = DecodeUint8s(pl, ok, &cv, &hw)
 	model, err := DecodeControllerHardware(cv, hw)
@@ -101,8 +101,8 @@ func DecodeControllerConfig(rm Message) (ControllerConfig, error) {
 		c.ID = int(id)
 		pl, ok = DecodeString(pl, ok, &c.Name)
 		pl, ok = DecodeUint8(pl, ok, &c.Index)
-		var fn, ifc, flags, color_set, color_pos, color_stagger uint8
-		pl, ok = DecodeUint8s(pl, ok, &fn, &ifc, &flags, &color_set, &color_pos, &color_stagger)
+		var fn, ifc, flags, colorSet, colorPos, colorStagger uint8
+		pl, ok = DecodeUint8s(pl, ok, &fn, &ifc, &flags, &colorSet, &colorPos, &colorStagger)
 		c.Function = CircuitFunction(fn)
 		c.Interface = CircuitInterface(ifc)
 
@@ -303,9 +303,9 @@ func SetCircuitState(ctx context.Context, s Session, circuitID int, state bool) 
 	pl = AppendUint32(pl, 0)
 	pl = AppendUint32(pl, uint32(circuitID))
 	if state {
-		pl = AppendUint32(pl, 1)
+		AppendUint32(pl, 1)
 	} else {
-		pl = AppendUint32(pl, 0)
+		AppendUint32(pl, 0)
 	}
 	id := s.NextID()
 	rm, err := sendAndValidate(ctx, s, m, id, MsgButtonPress)

@@ -235,6 +235,9 @@ func ValidateResponse(s Session, m Message, id uint16, code MsgCode) error {
 	if mcode == code+1 {
 		return nil
 	}
+	if m.ID() != id {
+		return fmt.Errorf("unexpected message id (%v != %v): %w", m.ID(), id, ErrUnexpectedResponseID)
+	}
 	switch mcode {
 	case MsgInvalidRequest:
 		return ErrInvalidRequest
@@ -271,6 +274,7 @@ func DecodeVersion(m Message) string {
 func sendAndValidate(ctx context.Context, s Session, m Message, id uint16, code MsgCode) (Message, error) {
 	s.Send(ctx, m)
 	rm := Message(s.ReadUntil(ctx))
+	rm.SetID(id)
 	if err := ValidateResponse(s, rm, id, code); err != nil {
 		return nil, err
 	}

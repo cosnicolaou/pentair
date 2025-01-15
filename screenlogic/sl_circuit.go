@@ -52,12 +52,12 @@ func (c *Circuit) Operations() map[string]devices.Operation {
 	}
 }
 
-func (c *Circuit) On(ctx context.Context, opts devices.OperationArgs) error {
+func (c *Circuit) On(ctx context.Context, _ devices.OperationArgs) error {
 	sess := c.adapter.Session(ctx)
 	return protocol.SetCircuitState(ctx, sess, c.DeviceConfigCustom.ID, true)
 }
 
-func (c *Circuit) Off(ctx context.Context, opts devices.OperationArgs) error {
+func (c *Circuit) Off(ctx context.Context, _ devices.OperationArgs) error {
 	sess := c.adapter.Session(ctx)
 	return protocol.SetCircuitState(ctx, sess, c.DeviceConfigCustom.ID, false)
 }

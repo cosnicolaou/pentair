@@ -79,7 +79,9 @@ func (slg *screenlogicGateway) run() error {
 			continue
 		}
 		m := protocol.Message(buf[:n])
-		slg.Write(m)
+		if _, err := slg.Write(m); err != nil {
+			return err
+		}
 	}
 }
 
@@ -97,6 +99,7 @@ func TestSLConn(t *testing.T) {
 		t.Fatalf("failed to dial: %v", err)
 	}
 
-	_ = conn
-	fmt.Printf("close....\n")
+	if err := conn.Close(ctx); err != nil {
+		t.Fatalf("failed to close: %v", err)
+	}
 }

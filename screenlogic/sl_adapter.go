@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/cosnicolaou/automation/devices"
@@ -29,8 +28,6 @@ type Adapter struct {
 
 	logger *slog.Logger
 
-	mu sync.Mutex
-	// manager *netutil.IdleManager[protocol.Session, *Adapter]
 	ondemand *netutil.OnDemandConnection[protocol.Session, *Adapter]
 }
 

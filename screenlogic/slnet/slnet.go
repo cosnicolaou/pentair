@@ -89,9 +89,8 @@ func (tc *Conn) readResponse() (MessageHeader, []byte, error) {
 	}
 	hdr := MessageHeader(buf)
 	msgSize := hdr.Size()
-
 	if n < int(msgSize)+MessageHeaderSize {
-		// more to read
+		return nil, nil, io.ErrUnexpectedEOF
 	}
 	return hdr, buf[:n], nil
 }
