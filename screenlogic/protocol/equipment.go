@@ -86,8 +86,6 @@ func DecodeControllerConfig(rm Message) (ControllerConfig, error) {
 	pl, ok = DecodeUint32(pl, ok, &flags)
 	cfg.Equipment = EquipmentFlags(flags)
 
-	fmt.Printf("flags: %x\n", flags)
-
 	var circuitName string
 	pl, ok = DecodeString(pl, ok, &circuitName)
 	var circuitCount uint32
@@ -154,7 +152,6 @@ func DecodeControllerConfig(rm Message) (ControllerConfig, error) {
 
 	var flags2, alarms uint32
 	pl, ok = DecodeUint32s(pl, ok, &flags2, &alarms)
-	fmt.Printf("flags: %x alarms: %x\n", flags2, alarms)
 
 	if !ok {
 		return ControllerConfig{}, fmt.Errorf("DecodeControllerConfig: message too small: %w", ErrInvalidResponse)
