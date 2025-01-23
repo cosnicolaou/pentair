@@ -56,33 +56,37 @@ func (pa *Adapter) Implementation() any {
 
 func (pa *Adapter) Operations() map[string]devices.Operation {
 	return map[string]devices.Operation{
-		"gettime": func(ctx context.Context, args devices.OperationArgs) error {
+		"gettime": func(ctx context.Context, args devices.OperationArgs) (any, error) {
 			t, err := protocol.GetTimeAndDate(ctx, pa.Session(ctx))
 			if err == nil {
 				fmt.Fprintf(args.Writer, "gettime: %v\n", t)
 			}
-			return err
+			return struct {
+				Time string `json:"time"`
+			}{Time: t.String()}, err
 		},
-		"getversion": func(ctx context.Context, args devices.OperationArgs) error {
+		"getversion": func(ctx context.Context, args devices.OperationArgs) (any, error) {
 			version, err := protocol.GetVersionInfo(ctx, pa.Session(ctx))
 			if err == nil {
 				fmt.Fprintf(args.Writer, "version: %v\n", version)
 			}
-			return err
+			return struct {
+				Version string `json:"version"`
+			}{Version: version}, err
 		},
-		"getconfig": func(ctx context.Context, args devices.OperationArgs) error {
+		"getconfig": func(ctx context.Context, args devices.OperationArgs) (any, error) {
 			cfg, err := protocol.GetControllerConfig(ctx, pa.Session(ctx))
 			if err == nil {
 				pa.FormatConfig(args.Writer, cfg)
 			}
-			return err
+			return cfg, err
 		},
-		"getstatus": func(ctx context.Context, args devices.OperationArgs) error {
+		"getstatus": func(ctx context.Context, args devices.OperationArgs) (any, error) {
 			status, err := protocol.GetControllerStatus(ctx, pa.Session(ctx))
 			if err == nil {
 				pa.FormatStatus(args.Writer, status)
 			}
-			return err
+			return status, err
 		},
 	}
 }
