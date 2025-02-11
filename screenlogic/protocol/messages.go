@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"log/slog"
 	"time"
 	"unicode/utf16"
 
@@ -224,10 +225,19 @@ func DecodeString(buf []byte, ok bool, val *string) ([]byte, bool) {
 	return buf, true
 }
 
-func ValidateResponse(s Session, m Message, id uint16, code MsgCode) error {
-	if err := s.Err(); err != nil {
-		return err
+func IsError(mcode MsgCode) error {
+	switch mcode {
+	case MsgInvalidRequest:
+		return ErrInvalidRequest
+	case MsgBadParameter:
+		return ErrBadParameter
+	case MsgBadLogin:
+		return ErrBadLogin
 	}
+	return nil
+}
+
+func ValidateResponse(m Message, id uint16, code MsgCode) error {
 	if len(m) < slnet.MessageHeaderSize {
 		return fmt.Errorf("message too small: (%v < %v): %w", len(m), slnet.MessageHeaderSize, ErrInvalidResponse)
 	}
@@ -238,15 +248,21 @@ func ValidateResponse(s Session, m Message, id uint16, code MsgCode) error {
 	if m.ID() != id {
 		return fmt.Errorf("unexpected message id (%v != %v): %w", m.ID(), id, ErrUnexpectedResponseID)
 	}
-	switch mcode {
-	case MsgInvalidRequest:
-		return ErrInvalidRequest
-	case MsgBadParameter:
-		return ErrBadParameter
-	case MsgBadLogin:
-		return ErrBadLogin
+	if err := IsError(mcode); err != nil {
+		return err
 	}
 	return fmt.Errorf("unexpected msg code (%v != %v): %w", mcode, code, ErrUnexpectedResponseCode)
+}
+
+func IsResponse(m Message, id uint16, code MsgCode) (bool, error) {
+	if len(m) < slnet.MessageHeaderSize {
+		return false, fmt.Errorf("message too small: (%v < %v): %w", len(m), slnet.MessageHeaderSize, ErrInvalidResponse)
+	}
+	mcode := m.Code()
+	if err := IsError(mcode); err != nil {
+		return false, err
+	}
+	return (mcode == code+1) && (m.ID() == id), nil
 }
 
 func DecodeDateTime(m Message) (time.Time, error) {
@@ -273,10 +289,24 @@ func DecodeVersion(m Message) string {
 
 func sendAndValidate(ctx context.Context, s Session, m Message, id uint16, code MsgCode) (Message, error) {
 	s.Send(ctx, m)
-	rm := Message(s.ReadUntil(ctx))
-	rm.SetID(id)
-	if err := ValidateResponse(s, rm, id, code); err != nil {
-		return nil, err
+	for i := 0; i < 10; i++ {
+		rm := Message(s.ReadUntil(ctx))
+		rm.SetID(id)
+		if err := s.Err(); err != nil {
+			return nil, err
+		}
+		ok, err := IsResponse(rm, id, code)
+		if err != nil {
+			return rm, err
+		}
+		if !ok {
+			Logger(ctx).Log(ctx, slog.LevelInfo, "retrying", "expected_code", code, "expected_id", id, "actual_code", rm.Code(), "actual_id", rm.ID())
+			continue
+		}
+		if err := ValidateResponse(rm, id, code); err != nil {
+			return nil, err
+		}
+		return rm, nil
 	}
-	return rm, nil
+	return nil, ErrNoValidResponse
 }

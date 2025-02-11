@@ -57,6 +57,7 @@ func (pa *Adapter) Implementation() any {
 func (pa *Adapter) Operations() map[string]devices.Operation {
 	return map[string]devices.Operation{
 		"gettime": func(ctx context.Context, args devices.OperationArgs) (any, error) {
+			ctx = protocol.WithLogger(ctx, pa.logger)
 			t, err := protocol.GetTimeAndDate(ctx, pa.Session(ctx))
 			if err == nil {
 				fmt.Fprintf(args.Writer, "gettime: %v\n", t)
@@ -66,6 +67,7 @@ func (pa *Adapter) Operations() map[string]devices.Operation {
 			}{Time: t.String()}, err
 		},
 		"getversion": func(ctx context.Context, args devices.OperationArgs) (any, error) {
+			ctx = protocol.WithLogger(ctx, pa.logger)
 			version, err := protocol.GetVersionInfo(ctx, pa.Session(ctx))
 			if err == nil {
 				fmt.Fprintf(args.Writer, "version: %v\n", version)
@@ -75,6 +77,7 @@ func (pa *Adapter) Operations() map[string]devices.Operation {
 			}{Version: version}, err
 		},
 		"getconfig": func(ctx context.Context, args devices.OperationArgs) (any, error) {
+			ctx = protocol.WithLogger(ctx, pa.logger)
 			cfg, err := protocol.GetControllerConfig(ctx, pa.Session(ctx))
 			if err == nil {
 				pa.FormatConfig(args.Writer, cfg)
@@ -82,6 +85,7 @@ func (pa *Adapter) Operations() map[string]devices.Operation {
 			return cfg, err
 		},
 		"getstatus": func(ctx context.Context, args devices.OperationArgs) (any, error) {
+			ctx = protocol.WithLogger(ctx, pa.logger)
 			status, err := protocol.GetControllerStatus(ctx, pa.Session(ctx))
 			if err == nil {
 				pa.FormatStatus(args.Writer, status)

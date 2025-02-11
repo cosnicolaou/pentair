@@ -41,7 +41,10 @@ func Login(ctx context.Context, s Session) error {
 	if rm.Code() == MsgBadLogin {
 		return fmt.Errorf("Connect: failed: bad login: %w", ErrBadLogin)
 	}
-	if err := ValidateResponse(s, rm, id, MsgLocalLogin); err != nil {
+	if err := s.Err(); err != nil {
+		return fmt.Errorf("Connect: unexpected session error: %w", err)
+	}
+	if err := ValidateResponse(rm, id, MsgLocalLogin); err != nil {
 		return fmt.Errorf("Connect: failed: %w", err)
 	}
 	if err := s.Err(); err != nil {
