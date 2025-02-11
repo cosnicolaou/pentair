@@ -13,7 +13,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/cosnicolaou/automation/net/streamconn"
 	"github.com/cosnicolaou/pentair/screenlogic/protocol"
 	"github.com/cosnicolaou/pentair/screenlogic/slnet"
 )
@@ -30,6 +29,11 @@ func onOff(state bool) string {
 	return "off"
 }
 
+type idleReset struct{}
+
+func (idleReset) Reset() {
+}
+
 func main() {
 	ctx := context.Background()
 	addr := "172.16.1.82:80"
@@ -38,8 +42,8 @@ func main() {
 	if err != nil {
 		exit("failed to dial %s: %v\n", addr, err)
 	}
-
-	sess := protocol.NewSession(conn, streamconn.NewIdleTimer(10*time.Minute))
+	ctx = protocol.WithLogger(ctx, logger)
+	sess := protocol.NewSession(conn, idleReset{})
 	if err := protocol.Login(ctx, sess); err != nil {
 		exit("failed to login to %s: %v\n", addr, err)
 	}

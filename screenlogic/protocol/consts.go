@@ -30,6 +30,7 @@ var (
 	ErrInvalidRequest         = fmt.Errorf("invalid request")
 	ErrInvalidResponse        = fmt.Errorf("invalid response")
 	ErrBadParameter           = fmt.Errorf("bad parameter")
+	ErrNoValidResponse        = fmt.Errorf("no valid response received")
 )
 
 type ControllerState int
