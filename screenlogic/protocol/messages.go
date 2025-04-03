@@ -290,7 +290,11 @@ func DecodeVersion(m Message) string {
 func sendAndValidate(ctx context.Context, s Session, m Message, id uint16, code MsgCode) (Message, error) {
 	s.Send(ctx, m)
 	for i := 0; i < 10; i++ {
-		rm := Message(s.ReadUntil(ctx))
+		msg := s.ReadUntil(ctx)
+		if err := s.Err(); err != nil {
+			return nil, err
+		}
+		rm := Message(msg)
 		rm.SetID(id)
 		if err := s.Err(); err != nil {
 			return nil, err
