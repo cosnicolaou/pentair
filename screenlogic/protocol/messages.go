@@ -288,10 +288,15 @@ func DecodeVersion(m Message) string {
 }
 
 func sendAndValidate(ctx context.Context, s Session, m Message, id uint16, code MsgCode) (Message, error) {
-	s.Send(ctx, m)
-	for i := 0; i < 10; i++ {
+	maxRetries := 3
+	for i := 0; i < maxRetries; i++ {
+		s.Send(ctx, m)
 		msg := s.ReadUntil(ctx)
 		if err := s.Err(); err != nil {
+			if i < maxRetries-1 {
+				Logger(ctx).Log(ctx, slog.LevelInfo, "retrying", "op", m.Code(), "id", m.ID(), "err", err)
+				continue
+			}
 			return nil, err
 		}
 		rm := Message(msg)
