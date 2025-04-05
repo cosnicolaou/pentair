@@ -287,9 +287,27 @@ func DecodeVersion(m Message) string {
 	return v
 }
 
+func send(ctx context.Context, s Session, m Message, maxRetries int) error {
+	var err error
+	for i := range maxRetries {
+		s.Send(ctx, m)
+		err = s.Err()
+		if err == nil {
+			return nil
+		}
+		if i < maxRetries-1 {
+			Logger(ctx).Log(ctx, slog.LevelInfo, "retrying", "op", m.Code(), "id", m.ID(), "err", err)
+		}
+	}
+	return err
+}
+
 func sendAndValidate(ctx context.Context, s Session, m Message, id uint16, code MsgCode) (Message, error) {
-	s.Send(ctx, m)
-	for i := 0; i < 10; i++ {
+	maxRetries := 3
+	if err := send(ctx, s, m, 3); err != nil {
+		return nil, err
+	}
+	for range maxRetries {
 		msg := s.ReadUntil(ctx)
 		if err := s.Err(); err != nil {
 			return nil, err
