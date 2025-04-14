@@ -7,6 +7,7 @@ package screenlogic
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/cosnicolaou/automation/devices"
 	"github.com/cosnicolaou/pentair/screenlogic/protocol"
@@ -52,12 +53,37 @@ func (c *Circuit) Operations() map[string]devices.Operation {
 	}
 }
 
+func (c *Circuit) setState(ctx context.Context, state bool) (any, error) {
+	maxRetries := 3
+	s := "SetCircuiteState off"
+	if state {
+		s = "SetCircuiteState on"
+	}
+	var lastErr error
+	for i := range maxRetries {
+		sess := c.adapter.Session(ctx)
+		ctx = protocol.WithLogger(ctx, c.logger)
+		err := protocol.SetCircuitState(ctx, sess, c.DeviceConfigCustom.ID, state)
+		if err == nil {
+			c.logger.Log(ctx, slog.LevelInfo, "set circuit state", "op", s, "id", c.DeviceConfigCustom.ID)
+			return nil, nil
+		}
+		lastErr = err
+		if i < maxRetries-1 {
+			c.logger.Log(ctx, slog.LevelInfo, "retrying", "retries", i, "max_retries", maxRetries, "op", s, "id", c.DeviceConfigCustom.ID, "err", err)
+			time.Sleep(time.Second)
+			continue
+		}
+		break
+	}
+	c.logger.Log(ctx, slog.LevelInfo, "failed to set circuit state", "op", s, "id", c.DeviceConfigCustom.ID, "err", lastErr)
+	return nil, lastErr
+}
+
 func (c *Circuit) On(ctx context.Context, _ devices.OperationArgs) (any, error) {
-	sess := c.adapter.Session(ctx)
-	return nil, protocol.SetCircuitState(ctx, sess, c.DeviceConfigCustom.ID, true)
+	return c.setState(ctx, true)
 }
 
 func (c *Circuit) Off(ctx context.Context, _ devices.OperationArgs) (any, error) {
-	sess := c.adapter.Session(ctx)
-	return nil, protocol.SetCircuitState(ctx, sess, c.DeviceConfigCustom.ID, false)
+	return c.setState(ctx, false)
 }
