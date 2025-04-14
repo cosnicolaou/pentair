@@ -11,12 +11,13 @@ import (
 	"log/slog"
 	"net"
 	"time"
+
+	"github.com/cosnicolaou/automation/devices"
 )
 
 type Conn struct {
 	conn    *net.TCPConn
 	timeout time.Duration
-	logger  *slog.Logger
 }
 
 type MessageHeader []byte
@@ -51,7 +52,8 @@ func (m MessageHeader) SetSize(size uint32) {
 	binary.LittleEndian.PutUint32(m[4:8], size)
 }
 
-func Dial(ctx context.Context, addr string, timeout time.Duration, logger *slog.Logger) (*Conn, error) {
+func Dial(ctx context.Context, addr string, timeout time.Duration) (*Conn, error) {
+	logger := devices.LoggerFromContext(ctx)
 	logger.Log(ctx, slog.LevelInfo, "dialing screenlogic", "addr", addr)
 	conn, err := net.DialTimeout("tcp", addr, timeout)
 	if err != nil {
@@ -61,19 +63,18 @@ func Dial(ctx context.Context, addr string, timeout time.Duration, logger *slog.
 	logger = logger.With("protocol", "screenlogic", "addr", conn.RemoteAddr().String())
 	c := &Conn{
 		conn:    conn.(*net.TCPConn),
-		timeout: timeout,
-		logger:  logger}
+		timeout: timeout}
 	return c, nil
 }
 
 func (tc *Conn) Send(ctx context.Context, buf []byte) (int, error) {
 	if err := tc.conn.SetWriteDeadline(time.Now().Add(tc.timeout)); err != nil {
-		tc.logger.Log(ctx, slog.LevelWarn, "send failed to set read deadline", "err", err)
+		devices.LoggerFromContext(ctx).Log(ctx, slog.LevelWarn, "send failed to set read deadline", "err", err)
 		return -1, err
 	}
 	n, err := tc.conn.Write(buf)
 	hdr := MessageHeader(buf)
-	tc.logger.Log(ctx, slog.LevelInfo, "sent", "id", hdr.ID(), "code", hdr.Code(), "size", hdr.Size(), "err", err)
+	devices.LoggerFromContext(ctx).Log(ctx, slog.LevelInfo, "sent", "id", hdr.ID(), "code", hdr.Code(), "size", hdr.Size(), "err", err)
 	return n, err
 }
 
@@ -97,22 +98,23 @@ func (tc *Conn) readResponse() (MessageHeader, []byte, error) {
 
 func (tc *Conn) ReadUntil(ctx context.Context, _ []string) ([]byte, error) {
 	if err := tc.conn.SetReadDeadline(time.Now().Add(tc.timeout)); err != nil {
-		tc.logger.Log(ctx, slog.LevelWarn, "readUntil failed to set read deadline", "err", err)
+		devices.LoggerFromContext(ctx).Log(ctx, slog.LevelWarn, "readUntil failed to set read deadline", "err", err)
 		return nil, err
 	}
 	hdr, buf, err := tc.readResponse()
 	if err != nil {
-		tc.logger.Log(ctx, slog.LevelWarn, "readUntil failed", "err", err)
+		devices.LoggerFromContext(ctx).Log(ctx, slog.LevelWarn, "readUntil failed", "err", err)
 		return nil, err
 	}
-	tc.logger.Log(ctx, slog.LevelInfo, "readUntil", "id", hdr.ID(), "code", hdr.Code(), "size", hdr.Size())
+	devices.LoggerFromContext(ctx).Log(ctx, slog.LevelInfo, "readUntil", "id", hdr.ID(), "code", hdr.Code(), "size", hdr.Size())
 	return buf, err
 }
 
 func (tc *Conn) Close(ctx context.Context) error {
 	if err := tc.conn.Close(); err != nil {
-		tc.logger.Log(ctx, slog.LevelWarn, "close failed", "err", err)
+		devices.LoggerFromContext(ctx).Log(ctx, slog.LevelWarn, "close failed", "err", err)
+		return err
 	}
-	tc.logger.Log(ctx, slog.LevelInfo, "close")
+	devices.LoggerFromContext(ctx).Log(ctx, slog.LevelInfo, "close")
 	return nil
 }
