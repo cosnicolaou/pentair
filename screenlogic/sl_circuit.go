@@ -6,9 +6,9 @@ package screenlogic
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
+	"cloudeng.io/logging/ctxlog"
 	"github.com/cosnicolaou/automation/devices"
 	"github.com/cosnicolaou/pentair/screenlogic/protocol"
 )
@@ -19,16 +19,12 @@ type CircuitConfig struct {
 
 func NewCircuit(opts devices.Options) *Circuit {
 	c := &Circuit{}
-	c.logger = opts.Logger.With(
-		"protocol", "screenlogic",
-		"device", "circuit")
 	return c
 }
 
 type Circuit struct {
 	devices.DeviceBase[CircuitConfig]
 	adapter *Adapter
-	logger  *slog.Logger
 }
 
 func (c *Circuit) SetController(ctrl devices.Controller) {
@@ -54,7 +50,8 @@ func (c *Circuit) Operations() map[string]devices.Operation {
 }
 
 func (c *Circuit) setState(ctx context.Context, state bool) (any, error) {
-	maxRetries := 3
+	ctx = c.adapter.loggingContext(ctx)
+	maxRetries := c.DeviceConfigCommon.RetryConfig.Retries
 	s := "SetCircuiteState off"
 	if state {
 		s = "SetCircuiteState on"
@@ -62,21 +59,20 @@ func (c *Circuit) setState(ctx context.Context, state bool) (any, error) {
 	var lastErr error
 	for i := range maxRetries {
 		sess := c.adapter.Session(ctx)
-		ctx = protocol.WithLogger(ctx, c.logger)
 		err := protocol.SetCircuitState(ctx, sess, c.DeviceConfigCustom.ID, state)
 		if err == nil {
-			c.logger.Log(ctx, slog.LevelInfo, "set circuit state", "op", s, "id", c.DeviceConfigCustom.ID)
+			ctxlog.Info(ctx, "screenlogic: set circuit state", "op", s, "id", c.DeviceConfigCustom.ID)
 			return nil, nil
 		}
 		lastErr = err
 		if i < maxRetries-1 {
-			c.logger.Log(ctx, slog.LevelInfo, "retrying", "retries", i, "max_retries", maxRetries, "op", s, "id", c.DeviceConfigCustom.ID, "err", err)
-			time.Sleep(time.Second)
+			ctxlog.Info(ctx, "screenlogic: retrying", "retries", i, "max_retries", maxRetries, "op", s, "id", c.DeviceConfigCustom.ID, "err", err)
+			time.Sleep(c.DeviceConfigCommon.RetryConfig.Timeout)
 			continue
 		}
 		break
 	}
-	c.logger.Log(ctx, slog.LevelInfo, "failed to set circuit state", "op", s, "id", c.DeviceConfigCustom.ID, "err", lastErr)
+	ctxlog.Error(ctx, "screenlogic: failed to set circuit state", "op", s, "id", c.DeviceConfigCustom.ID, "err", lastErr)
 	return nil, lastErr
 }
 

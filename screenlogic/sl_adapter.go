@@ -10,6 +10,7 @@ import (
 	"io"
 	"time"
 
+	"cloudeng.io/logging/ctxlog"
 	"github.com/cosnicolaou/automation/devices"
 	"github.com/cosnicolaou/automation/net/netutil"
 	"github.com/cosnicolaou/pentair/screenlogic/protocol"
@@ -35,7 +36,7 @@ func NewAdapter(opts devices.Options) *Adapter {
 }
 
 func (pa *Adapter) loggingContext(ctx context.Context) context.Context {
-	return devices.ContextWithLoggerAttributes(ctx, "protocol", "screenlogic")
+	return ctxlog.ContextWith(ctx, "protocol", "screenlogic")
 }
 
 func (pa *Adapter) UnmarshalYAML(node *yaml.Node) error {
