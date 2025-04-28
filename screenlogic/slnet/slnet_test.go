@@ -5,11 +5,9 @@
 package slnet_test
 
 import (
-	"bytes"
 	"context"
 	"embed"
 	"fmt"
-	"log/slog"
 	"net"
 	"testing"
 	"time"
@@ -91,10 +89,7 @@ func TestSLConn(t *testing.T) {
 	gl := newListener(t)
 	runGateway(gl, errCh)
 
-	logRecorder := bytes.NewBuffer(nil)
-	logger := slog.New(slog.NewJSONHandler(logRecorder, nil))
-
-	conn, err := slnet.Dial(ctx, gl.Addr().String(), time.Minute, logger)
+	conn, err := slnet.Dial(ctx, gl.Addr().String(), time.Minute)
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}

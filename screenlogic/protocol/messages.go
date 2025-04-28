@@ -8,10 +8,10 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"log/slog"
 	"time"
 	"unicode/utf16"
 
+	"cloudeng.io/logging/ctxlog"
 	"github.com/cosnicolaou/pentair/screenlogic/slnet"
 )
 
@@ -288,24 +288,22 @@ func DecodeVersion(m Message) string {
 }
 
 func sendAndValidate(ctx context.Context, s Session, m Message, id uint16, code MsgCode) (Message, error) {
-	maxRetries := 3
+	ctxlog.Info(ctx, "screenlogic: sendAndValidate", "code", m.Code(), "id", m.ID())
 	s.Send(ctx, m)
-	for range maxRetries {
+	if err := s.Err(); err != nil {
+		// Check in case the send failed and retry at a higher level
+		return nil, err
+	}
+	for range 3 {
 		msg := s.ReadUntil(ctx)
-		if err := s.Err(); err != nil {
-			return nil, err
-		}
 		rm := Message(msg)
 		rm.SetID(id)
-		if err := s.Err(); err != nil {
-			return nil, err
-		}
 		ok, err := IsResponse(rm, id, code)
 		if err != nil {
 			return rm, err
 		}
 		if !ok {
-			Logger(ctx).Log(ctx, slog.LevelInfo, "retrying", "expected_code", code, "expected_id", id, "actual_code", rm.Code(), "actual_id", rm.ID())
+			ctxlog.Info(ctx, "screenlogic: waiting for response", "expected_code", code, "expected_id", id, "actual_code", rm.Code(), "actual_id", rm.ID())
 			continue
 		}
 		if err := ValidateResponse(rm, id, code); err != nil {

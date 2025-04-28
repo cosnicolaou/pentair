@@ -35,10 +35,6 @@ func NewAdapter(opts devices.Options) *Adapter {
 	return pa
 }
 
-func (pa *Adapter) loggingContext(ctx context.Context) context.Context {
-	return ctxlog.ContextWith(ctx, "protocol", "screenlogic")
-}
-
 func (pa *Adapter) UnmarshalYAML(node *yaml.Node) error {
 	if err := node.Decode(&pa.ControllerConfigCustom); err != nil {
 		return err
@@ -57,9 +53,8 @@ func (pa *Adapter) Implementation() any {
 func (pa *Adapter) Operations() map[string]devices.Operation {
 	return map[string]devices.Operation{
 		"gettime": func(ctx context.Context, args devices.OperationArgs) (any, error) {
-			ctx = pa.loggingContext(ctx)
-
-			t, err := protocol.GetTimeAndDate(ctx, pa.Session(ctx))
+			ctx, sess := pa.Session(ctx)
+			t, err := protocol.GetTimeAndDate(ctx, sess)
 			if err == nil {
 				fmt.Fprintf(args.Writer, "gettime: %v\n", t)
 			}
@@ -68,8 +63,8 @@ func (pa *Adapter) Operations() map[string]devices.Operation {
 			}{Time: t.String()}, err
 		},
 		"getversion": func(ctx context.Context, args devices.OperationArgs) (any, error) {
-			ctx = pa.loggingContext(ctx)
-			version, err := protocol.GetVersionInfo(ctx, pa.Session(ctx))
+			ctx, sess := pa.Session(ctx)
+			version, err := protocol.GetVersionInfo(ctx, sess)
 			if err == nil {
 				fmt.Fprintf(args.Writer, "version: %v\n", version)
 			}
@@ -78,16 +73,16 @@ func (pa *Adapter) Operations() map[string]devices.Operation {
 			}{Version: version}, err
 		},
 		"getconfig": func(ctx context.Context, args devices.OperationArgs) (any, error) {
-			ctx = pa.loggingContext(ctx)
-			cfg, err := protocol.GetControllerConfig(ctx, pa.Session(ctx))
+			ctx, sess := pa.Session(ctx)
+			cfg, err := protocol.GetControllerConfig(ctx, sess)
 			if err == nil {
 				pa.FormatConfig(args.Writer, cfg)
 			}
 			return cfg, err
 		},
 		"getstatus": func(ctx context.Context, args devices.OperationArgs) (any, error) {
-			ctx = pa.loggingContext(ctx)
-			status, err := protocol.GetControllerStatus(ctx, pa.Session(ctx))
+			ctx, sess := pa.Session(ctx)
+			status, err := protocol.GetControllerStatus(ctx, sess)
 			if err == nil {
 				pa.FormatStatus(args.Writer, status)
 			}
@@ -106,7 +101,7 @@ func (pa *Adapter) OperationsHelp() map[string]string {
 }
 
 func (pa *Adapter) Connect(ctx context.Context, idle netutil.IdleReset) (protocol.Session, error) {
-	ctx = pa.loggingContext(ctx)
+	ctxlog.Info(ctx, "screenlogic: connect: dialing", "ip", pa.ControllerConfigCustom.IPAddress)
 	transport, err := slnet.Dial(ctx, pa.ControllerConfigCustom.IPAddress, pa.Timeout)
 	if err != nil {
 		return nil, err
@@ -114,22 +109,26 @@ func (pa *Adapter) Connect(ctx context.Context, idle netutil.IdleReset) (protoco
 	session := protocol.NewSession(transport, idle)
 	// Connect, there is no authentication for the screenlogic adapters
 	// on a local network.
+	ctxlog.Info(ctx, "screenlogic: connect: logging in", "ip", pa.ControllerConfigCustom.IPAddress)
 	if err := protocol.Login(ctx, session); err != nil {
 		session.Close(ctx)
 		return nil, err
 	}
+	ctxlog.Info(ctx, "screenlogic: connect: logged in", "ip", pa.ControllerConfigCustom.IPAddress)
 	return session, nil
-
 }
 
 func (pa *Adapter) Disconnect(ctx context.Context, sess protocol.Session) error {
-	ctx = pa.loggingContext(ctx)
 	return sess.Close(ctx)
 }
 
-func (pa *Adapter) Session(ctx context.Context) protocol.Session {
+func (pa *Adapter) loggingContext(ctx context.Context) context.Context {
+	return ctxlog.WithAttributes(ctx, "protocol", "screenlogic")
+}
+
+func (pa *Adapter) Session(ctx context.Context) (context.Context, protocol.Session) {
 	ctx = pa.loggingContext(ctx)
-	return pa.ondemand.Connection(ctx)
+	return ctx, pa.ondemand.Connection(ctx)
 }
 
 func (pa *Adapter) Close(ctx context.Context) error {

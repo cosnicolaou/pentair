@@ -4,12 +4,7 @@
 
 package protocol
 
-import (
-	"context"
-	"io"
-	"log/slog"
-)
-
+/*
 type ctxKey string
 
 func WithLogger(ctx context.Context, logger *slog.Logger) context.Context {
@@ -25,3 +20,4 @@ func Logger(ctx context.Context) *slog.Logger {
 	}
 	return l.(*slog.Logger)
 }
+*/

@@ -92,7 +92,7 @@ func DecodeControllerConfig(rm Message) (ControllerConfig, error) {
 
 	// Circuits
 	pl, ok = DecodeUint32(pl, ok, &circuitCount)
-	for i := 0; i < int(circuitCount); i++ {
+	for range int(circuitCount) {
 		var c Circuit
 		var id uint32
 		pl, ok = DecodeUint32(pl, ok, &id)
@@ -123,7 +123,7 @@ func DecodeControllerConfig(rm Message) (ControllerConfig, error) {
 	// Colors
 	var colorCount uint32
 	pl, ok = DecodeUint32(pl, ok, &colorCount)
-	for i := 0; i < int(colorCount); i++ {
+	for range int(colorCount) {
 		var color string
 		pl, ok = DecodeString(pl, ok, &color)
 		var R, G, B uint32
@@ -209,7 +209,7 @@ func DecodeControllerStatus(rm Message) (ControllerStatus, error) {
 
 	var nBodies uint32
 	pl, ok = DecodeUint32(pl, ok, &nBodies)
-	for i := 0; i < int(nBodies); i++ {
+	for range int(nBodies) {
 		// Skip body data, type (uint32)+ last temp, heat, heat set point, cool set point, heat mode (int32),
 		pl, ok = DecodeSkip(pl, ok, 4+(5*4))
 	}
@@ -220,7 +220,7 @@ func DecodeControllerStatus(rm Message) (ControllerStatus, error) {
 
 	var circuitCount uint32
 	pl, ok = DecodeUint32(pl, ok, &circuitCount)
-	for i := 0; i < int(circuitCount); i++ {
+	for range int(circuitCount) {
 		var c CircuitStatus
 		var id, val uint32
 		pl, ok = DecodeUint32(pl, ok, &id)

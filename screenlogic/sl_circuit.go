@@ -6,7 +6,6 @@ package screenlogic
 
 import (
 	"context"
-	"time"
 
 	"cloudeng.io/logging/ctxlog"
 	"github.com/cosnicolaou/automation/devices"
@@ -24,6 +23,7 @@ func NewCircuit(opts devices.Options) *Circuit {
 
 type Circuit struct {
 	devices.DeviceBase[CircuitConfig]
+
 	adapter *Adapter
 }
 
@@ -49,31 +49,21 @@ func (c *Circuit) Operations() map[string]devices.Operation {
 	}
 }
 
+var circuitState = map[bool]string{
+	true:  "on",
+	false: "off",
+}
+
 func (c *Circuit) setState(ctx context.Context, state bool) (any, error) {
-	ctx = c.adapter.loggingContext(ctx)
-	maxRetries := c.DeviceConfigCommon.RetryConfig.Retries
-	s := "SetCircuiteState off"
-	if state {
-		s = "SetCircuiteState on"
+	ctx, sess := c.adapter.Session(ctx)
+	circuit := c.DeviceConfigCustom.ID
+	err := protocol.SetCircuitState(ctx, sess, circuit, state)
+	if err != nil {
+		ctxlog.Error(ctx, "screenlogic: failed to set circuit state", "op", circuitState[state], "circuit", circuit, "err", err)
+		return nil, err
 	}
-	var lastErr error
-	for i := range maxRetries {
-		sess := c.adapter.Session(ctx)
-		err := protocol.SetCircuitState(ctx, sess, c.DeviceConfigCustom.ID, state)
-		if err == nil {
-			ctxlog.Info(ctx, "screenlogic: set circuit state", "op", s, "id", c.DeviceConfigCustom.ID)
-			return nil, nil
-		}
-		lastErr = err
-		if i < maxRetries-1 {
-			ctxlog.Info(ctx, "screenlogic: retrying", "retries", i, "max_retries", maxRetries, "op", s, "id", c.DeviceConfigCustom.ID, "err", err)
-			time.Sleep(c.DeviceConfigCommon.RetryConfig.Timeout)
-			continue
-		}
-		break
-	}
-	ctxlog.Error(ctx, "screenlogic: failed to set circuit state", "op", s, "id", c.DeviceConfigCustom.ID, "err", lastErr)
-	return nil, lastErr
+	ctxlog.Info(ctx, "screenlogic: circuit state set", "op", circuitState[state], "circuit", circuit)
+	return nil, err
 }
 
 func (c *Circuit) On(ctx context.Context, _ devices.OperationArgs) (any, error) {
