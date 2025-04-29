@@ -14,4 +14,5 @@ require (
 	cloudeng.io/cmdutil v0.0.0-20250428223124-bb967ac9f3f8 // indirect
 	cloudeng.io/datetime v0.0.0-20250428223124-bb967ac9f3f8 // indirect
 	cloudeng.io/file v0.0.0-20250428223124-bb967ac9f3f8 // indirect
+	github.com/kr/text v0.2.0 // indirect
 )
