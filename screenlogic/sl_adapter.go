@@ -29,7 +29,7 @@ type Adapter struct {
 	ondemand *netutil.OnDemandConnection[protocol.Session, *Adapter]
 }
 
-func NewAdapter(opts devices.Options) *Adapter {
+func NewAdapter(_ devices.Options) *Adapter {
 	pa := &Adapter{}
 	pa.ondemand = netutil.NewOnDemandConnection(pa, protocol.NewErrorSession)
 	return pa

@@ -16,7 +16,7 @@ type CircuitConfig struct {
 	ID int `yaml:"id"`
 }
 
-func NewCircuit(opts devices.Options) *Circuit {
+func NewCircuit(_ devices.Options) *Circuit {
 	c := &Circuit{}
 	return c
 }
