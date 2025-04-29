@@ -6,8 +6,8 @@ package screenlogic
 
 import (
 	"context"
-	"log/slog"
 
+	"cloudeng.io/logging/ctxlog"
 	"github.com/cosnicolaou/automation/devices"
 	"github.com/cosnicolaou/pentair/screenlogic/protocol"
 )
@@ -16,18 +16,15 @@ type CircuitConfig struct {
 	ID int `yaml:"id"`
 }
 
-func NewCircuit(opts devices.Options) *Circuit {
+func NewCircuit(_ devices.Options) *Circuit {
 	c := &Circuit{}
-	c.logger = opts.Logger.With(
-		"protocol", "screenlogic",
-		"device", "circuit")
 	return c
 }
 
 type Circuit struct {
 	devices.DeviceBase[CircuitConfig]
+
 	adapter *Adapter
-	logger  *slog.Logger
 }
 
 func (c *Circuit) SetController(ctrl devices.Controller) {
@@ -52,12 +49,27 @@ func (c *Circuit) Operations() map[string]devices.Operation {
 	}
 }
 
+var circuitState = map[bool]string{
+	true:  "on",
+	false: "off",
+}
+
+func (c *Circuit) setState(ctx context.Context, state bool) (any, error) {
+	ctx, sess := c.adapter.Session(ctx)
+	circuit := c.DeviceConfigCustom.ID
+	err := protocol.SetCircuitState(ctx, sess, circuit, state)
+	if err != nil {
+		ctxlog.Error(ctx, "screenlogic: failed to set circuit state", "op", circuitState[state], "circuit", circuit, "err", err)
+		return nil, err
+	}
+	ctxlog.Info(ctx, "screenlogic: circuit state set", "op", circuitState[state], "circuit", circuit)
+	return nil, err
+}
+
 func (c *Circuit) On(ctx context.Context, _ devices.OperationArgs) (any, error) {
-	sess := c.adapter.Session(ctx)
-	return nil, protocol.SetCircuitState(ctx, sess, c.DeviceConfigCustom.ID, true)
+	return c.setState(ctx, true)
 }
 
 func (c *Circuit) Off(ctx context.Context, _ devices.OperationArgs) (any, error) {
-	sess := c.adapter.Session(ctx)
-	return nil, protocol.SetCircuitState(ctx, sess, c.DeviceConfigCustom.ID, false)
+	return c.setState(ctx, false)
 }

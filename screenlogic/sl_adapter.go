@@ -8,9 +8,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"time"
 
+	"cloudeng.io/logging/ctxlog"
 	"github.com/cosnicolaou/automation/devices"
 	"github.com/cosnicolaou/automation/net/netutil"
 	"github.com/cosnicolaou/pentair/screenlogic/protocol"
@@ -26,15 +26,11 @@ type AdapterConfig struct {
 type Adapter struct {
 	devices.ControllerBase[AdapterConfig]
 
-	logger *slog.Logger
-
 	ondemand *netutil.OnDemandConnection[protocol.Session, *Adapter]
 }
 
-func NewAdapter(opts devices.Options) *Adapter {
-	pa := &Adapter{
-		logger: opts.Logger.With("protocol", "screenlogic"),
-	}
+func NewAdapter(_ devices.Options) *Adapter {
+	pa := &Adapter{}
 	pa.ondemand = netutil.NewOnDemandConnection(pa, protocol.NewErrorSession)
 	return pa
 }
@@ -57,8 +53,8 @@ func (pa *Adapter) Implementation() any {
 func (pa *Adapter) Operations() map[string]devices.Operation {
 	return map[string]devices.Operation{
 		"gettime": func(ctx context.Context, args devices.OperationArgs) (any, error) {
-			ctx = protocol.WithLogger(ctx, pa.logger)
-			t, err := protocol.GetTimeAndDate(ctx, pa.Session(ctx))
+			ctx, sess := pa.Session(ctx)
+			t, err := protocol.GetTimeAndDate(ctx, sess)
 			if err == nil {
 				fmt.Fprintf(args.Writer, "gettime: %v\n", t)
 			}
@@ -67,8 +63,8 @@ func (pa *Adapter) Operations() map[string]devices.Operation {
 			}{Time: t.String()}, err
 		},
 		"getversion": func(ctx context.Context, args devices.OperationArgs) (any, error) {
-			ctx = protocol.WithLogger(ctx, pa.logger)
-			version, err := protocol.GetVersionInfo(ctx, pa.Session(ctx))
+			ctx, sess := pa.Session(ctx)
+			version, err := protocol.GetVersionInfo(ctx, sess)
 			if err == nil {
 				fmt.Fprintf(args.Writer, "version: %v\n", version)
 			}
@@ -77,16 +73,16 @@ func (pa *Adapter) Operations() map[string]devices.Operation {
 			}{Version: version}, err
 		},
 		"getconfig": func(ctx context.Context, args devices.OperationArgs) (any, error) {
-			ctx = protocol.WithLogger(ctx, pa.logger)
-			cfg, err := protocol.GetControllerConfig(ctx, pa.Session(ctx))
+			ctx, sess := pa.Session(ctx)
+			cfg, err := protocol.GetControllerConfig(ctx, sess)
 			if err == nil {
 				pa.FormatConfig(args.Writer, cfg)
 			}
 			return cfg, err
 		},
 		"getstatus": func(ctx context.Context, args devices.OperationArgs) (any, error) {
-			ctx = protocol.WithLogger(ctx, pa.logger)
-			status, err := protocol.GetControllerStatus(ctx, pa.Session(ctx))
+			ctx, sess := pa.Session(ctx)
+			status, err := protocol.GetControllerStatus(ctx, sess)
 			if err == nil {
 				pa.FormatStatus(args.Writer, status)
 			}
@@ -105,30 +101,38 @@ func (pa *Adapter) OperationsHelp() map[string]string {
 }
 
 func (pa *Adapter) Connect(ctx context.Context, idle netutil.IdleReset) (protocol.Session, error) {
-	transport, err := slnet.Dial(ctx, pa.ControllerConfigCustom.IPAddress, pa.Timeout, pa.logger)
+	ctxlog.Info(ctx, "screenlogic: connect: dialing", "ip", pa.ControllerConfigCustom.IPAddress)
+	transport, err := slnet.Dial(ctx, pa.ControllerConfigCustom.IPAddress, pa.Timeout)
 	if err != nil {
 		return nil, err
 	}
 	session := protocol.NewSession(transport, idle)
 	// Connect, there is no authentication for the screenlogic adapters
 	// on a local network.
+	ctxlog.Info(ctx, "screenlogic: connect: logging in", "ip", pa.ControllerConfigCustom.IPAddress)
 	if err := protocol.Login(ctx, session); err != nil {
 		session.Close(ctx)
 		return nil, err
 	}
+	ctxlog.Info(ctx, "screenlogic: connect: logged in", "ip", pa.ControllerConfigCustom.IPAddress)
 	return session, nil
-
 }
 
 func (pa *Adapter) Disconnect(ctx context.Context, sess protocol.Session) error {
 	return sess.Close(ctx)
 }
 
-func (pa *Adapter) Session(ctx context.Context) protocol.Session {
-	return pa.ondemand.Connection(ctx)
+func (pa *Adapter) loggingContext(ctx context.Context) context.Context {
+	return ctxlog.WithAttributes(ctx, "protocol", "screenlogic")
+}
+
+func (pa *Adapter) Session(ctx context.Context) (context.Context, protocol.Session) {
+	ctx = pa.loggingContext(ctx)
+	return ctx, pa.ondemand.Connection(ctx)
 }
 
 func (pa *Adapter) Close(ctx context.Context) error {
+	ctx = pa.loggingContext(ctx)
 	return pa.ondemand.Close(ctx)
 }
 

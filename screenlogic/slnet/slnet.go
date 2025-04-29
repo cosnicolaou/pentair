@@ -8,15 +8,16 @@ import (
 	"context"
 	"encoding/binary"
 	"io"
-	"log/slog"
 	"net"
 	"time"
+
+	"cloudeng.io/logging/ctxlog"
 )
 
 type Conn struct {
 	conn    *net.TCPConn
+	addr    string
 	timeout time.Duration
-	logger  *slog.Logger
 }
 
 type MessageHeader []byte
@@ -51,29 +52,24 @@ func (m MessageHeader) SetSize(size uint32) {
 	binary.LittleEndian.PutUint32(m[4:8], size)
 }
 
-func Dial(ctx context.Context, addr string, timeout time.Duration, logger *slog.Logger) (*Conn, error) {
-	logger.Log(ctx, slog.LevelInfo, "dialing screenlogic", "addr", addr)
+func Dial(ctx context.Context, addr string, timeout time.Duration) (*Conn, error) {
+	ctxlog.Info(ctx, "screenlogic: dialing", "addr", addr)
 	conn, err := net.DialTimeout("tcp", addr, timeout)
 	if err != nil {
-		logger.Log(ctx, slog.LevelWarn, "dial failed", "addr", addr, "err", err)
+		ctxlog.Error(ctx, "screenlogic: dial failed", "addr", addr, "err", err)
 		return nil, err
 	}
-	logger = logger.With("protocol", "screenlogic", "addr", conn.RemoteAddr().String())
-	c := &Conn{
-		conn:    conn.(*net.TCPConn),
-		timeout: timeout,
-		logger:  logger}
-	return c, nil
+	return &Conn{conn: conn.(*net.TCPConn), addr: addr, timeout: timeout}, nil
 }
 
 func (tc *Conn) Send(ctx context.Context, buf []byte) (int, error) {
 	if err := tc.conn.SetWriteDeadline(time.Now().Add(tc.timeout)); err != nil {
-		tc.logger.Log(ctx, slog.LevelWarn, "send failed to set read deadline", "err", err)
+		ctxlog.Error(ctx, "screenlogic: send failed to set read deadline", "addr", tc.addr, "err", err)
 		return -1, err
 	}
 	n, err := tc.conn.Write(buf)
 	hdr := MessageHeader(buf)
-	tc.logger.Log(ctx, slog.LevelInfo, "sent", "id", hdr.ID(), "code", hdr.Code(), "size", hdr.Size(), "err", err)
+	ctxlog.Info(ctx, "screenlogic: sent", "addr", tc.addr, "id", hdr.ID(), "code", hdr.Code(), "size", hdr.Size(), "err", err)
 	return n, err
 }
 
@@ -97,22 +93,23 @@ func (tc *Conn) readResponse() (MessageHeader, []byte, error) {
 
 func (tc *Conn) ReadUntil(ctx context.Context, _ []string) ([]byte, error) {
 	if err := tc.conn.SetReadDeadline(time.Now().Add(tc.timeout)); err != nil {
-		tc.logger.Log(ctx, slog.LevelWarn, "readUntil failed to set read deadline", "err", err)
+		ctxlog.Error(ctx, "screenlogic: readUntil failed to set read deadline", "addr", tc.addr, "err", err)
 		return nil, err
 	}
 	hdr, buf, err := tc.readResponse()
 	if err != nil {
-		tc.logger.Log(ctx, slog.LevelWarn, "readUntil failed", "err", err)
+		ctxlog.Error(ctx, "screenlogic: readUntil failed", "addr", tc.addr, "err", err)
 		return nil, err
 	}
-	tc.logger.Log(ctx, slog.LevelInfo, "readUntil", "id", hdr.ID(), "code", hdr.Code(), "size", hdr.Size())
+	ctxlog.Info(ctx, "screenlogic: readUntil", "addr", tc.addr, "id", hdr.ID(), "code", hdr.Code(), "size", hdr.Size())
 	return buf, err
 }
 
 func (tc *Conn) Close(ctx context.Context) error {
 	if err := tc.conn.Close(); err != nil {
-		tc.logger.Log(ctx, slog.LevelWarn, "close failed", "err", err)
+		ctxlog.Error(ctx, "screenlogic: close failed", "addr", tc.addr, "err", err)
+		return err
 	}
-	tc.logger.Log(ctx, slog.LevelInfo, "close")
+	ctxlog.Info(ctx, "screenlogic: close", "addr", tc.addr)
 	return nil
 }
