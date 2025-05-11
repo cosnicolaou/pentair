@@ -287,15 +287,14 @@ func DecodeVersion(m Message) string {
 	return v
 }
 
-func sendAndValidate(ctx context.Context, s Session, m Message, id uint16, code MsgCode) (Message, error) {
+func sendAndValidate(ctx context.Context, s *Session, m Message, id uint16, code MsgCode) (Message, error) {
 	ctxlog.Info(ctx, "screenlogic: sendAndValidate", "code", m.Code(), "id", m.ID())
 	s.Send(ctx, m)
-	if err := s.Err(); err != nil {
-		// Check in case the send failed and retry at a higher level
-		return nil, err
-	}
 	for range 3 {
-		msg := s.ReadUntil(ctx)
+		msg, err := s.ReadUntil(ctx)
+		if err != nil {
+			return nil, err
+		}
 		rm := Message(msg)
 		rm.SetID(id)
 		ok, err := IsResponse(rm, id, code)

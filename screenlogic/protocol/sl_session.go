@@ -5,47 +5,24 @@
 package protocol
 
 import (
-	"sync"
+	"sync/atomic"
 
-	"github.com/cosnicolaou/automation/net/netutil"
 	"github.com/cosnicolaou/automation/net/streamconn"
-	"github.com/cosnicolaou/pentair/screenlogic/slnet"
 )
 
-type Session interface {
-	streamconn.Session
-	NextID() uint16
+type Session struct {
+	*streamconn.Session
 }
 
-type session struct {
-	streamconn.Session
-	mu sync.Mutex
-	id uint16
-}
+var id uint32
 
-func NewSession(conn *slnet.Conn, idle netutil.IdleReset) Session {
-	return &session{
-		Session: streamconn.NewSession(conn, idle),
+func NewSession(s *streamconn.Session) *Session {
+	return &Session{
+		Session: s,
 	}
 }
 
-func (s *session) NextID() uint16 {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.id++
-	return s.id
-}
-
-type errorSession struct {
-	streamconn.Session
-}
-
-func NewErrorSession(err error) Session {
-	return &errorSession{
-		Session: streamconn.NewErrorSession(err),
-	}
-}
-
-func (e *errorSession) NextID() uint16 {
-	return 0
+func (s *Session) NextID() uint16 {
+	ui := atomic.AddUint32(&id, 1)
+	return uint16(ui & 0xFFFF)
 }

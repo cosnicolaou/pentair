@@ -17,7 +17,7 @@ var (
 
 )
 
-func Login(ctx context.Context, s Session) error {
+func Login(ctx context.Context, s *Session) error {
 	id := s.NextID()
 
 	// Build the login message which consists of:
@@ -36,8 +36,11 @@ func Login(ctx context.Context, s Session) error {
 	// and then the login message.
 	s.Send(ctx, connectMsg)
 	s.Send(ctx, loginMsg)
-
-	rm := Message(s.ReadUntil(ctx))
+	msg, err := s.ReadUntil(ctx)
+	if err != nil {
+		return fmt.Errorf("Connect:ReadUntil  failed: %w", err)
+	}
+	rm := Message(msg)
 	if rm.Code() == MsgBadLogin {
 		return fmt.Errorf("Connect: failed: bad login: %w", ErrBadLogin)
 	}
@@ -53,7 +56,7 @@ func Login(ctx context.Context, s Session) error {
 	return nil
 }
 
-func GetTimeAndDate(ctx context.Context, s Session) (time.Time, error) {
+func GetTimeAndDate(ctx context.Context, s *Session) (time.Time, error) {
 	id := s.NextID()
 	m := NewEmptyMessage(id, MsgGetDateTime, 0)
 	rm, err := sendAndValidate(ctx, s, m, id, MsgGetDateTime)
@@ -63,7 +66,7 @@ func GetTimeAndDate(ctx context.Context, s Session) (time.Time, error) {
 	return DecodeDateTime(rm)
 }
 
-func GetVersionInfo(ctx context.Context, s Session) (string, error) {
+func GetVersionInfo(ctx context.Context, s *Session) (string, error) {
 	id := s.NextID()
 	m := NewEmptyMessage(id, MsgGetVersion, 0)
 	rm, err := sendAndValidate(ctx, s, m, id, MsgGetVersion)
