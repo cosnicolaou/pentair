@@ -55,9 +55,14 @@ var circuitState = map[bool]string{
 }
 
 func (c *Circuit) setState(ctx context.Context, state bool) (any, error) {
-	ctx, sess := c.adapter.Session(ctx)
+	ctx, sess, err := c.adapter.session(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer sess.Release()
+
 	circuit := c.DeviceConfigCustom.ID
-	err := protocol.SetCircuitState(ctx, sess, circuit, state)
+	err = protocol.SetCircuitState(ctx, sess, circuit, state)
 	if err != nil {
 		ctxlog.Error(ctx, "screenlogic: failed to set circuit state", "op", circuitState[state], "circuit", circuit, "err", err)
 		return nil, err

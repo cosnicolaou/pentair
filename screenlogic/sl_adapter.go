@@ -13,6 +13,7 @@ import (
 	"cloudeng.io/logging/ctxlog"
 	"github.com/cosnicolaou/automation/devices"
 	"github.com/cosnicolaou/automation/net/netutil"
+	"github.com/cosnicolaou/automation/net/streamconn"
 	"github.com/cosnicolaou/pentair/screenlogic/protocol"
 	"github.com/cosnicolaou/pentair/screenlogic/slnet"
 	"gopkg.in/yaml.v3"
@@ -26,12 +27,14 @@ type AdapterConfig struct {
 type Adapter struct {
 	devices.ControllerBase[AdapterConfig]
 
-	ondemand *netutil.OnDemandConnection[protocol.Session, *Adapter]
+	mgr      *streamconn.SessionManager
+	ondemand *netutil.OnDemandConnection[streamconn.Transport, *Adapter]
 }
 
 func NewAdapter(_ devices.Options) *Adapter {
 	pa := &Adapter{}
-	pa.ondemand = netutil.NewOnDemandConnection(pa, protocol.NewErrorSession)
+	pa.ondemand = netutil.NewOnDemandConnection(pa)
+	pa.mgr = &streamconn.SessionManager{}
 	return pa
 }
 
@@ -50,43 +53,28 @@ func (pa *Adapter) Implementation() any {
 	return pa
 }
 
+func (pa *Adapter) runOperation(ctx context.Context, op func(context.Context, *protocol.Session, devices.OperationArgs) (any, error), args devices.OperationArgs) (any, error) {
+	ctx, sess, err := pa.session(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer sess.Release()
+	return op(ctx, sess, args)
+}
+
 func (pa *Adapter) Operations() map[string]devices.Operation {
 	return map[string]devices.Operation{
 		"gettime": func(ctx context.Context, args devices.OperationArgs) (any, error) {
-			ctx, sess := pa.Session(ctx)
-			t, err := protocol.GetTimeAndDate(ctx, sess)
-			if err == nil {
-				fmt.Fprintf(args.Writer, "gettime: %v\n", t)
-			}
-			return struct {
-				Time string `json:"time"`
-			}{Time: t.String()}, err
+			return pa.runOperation(ctx, pa.getTimeAndDate, args)
 		},
 		"getversion": func(ctx context.Context, args devices.OperationArgs) (any, error) {
-			ctx, sess := pa.Session(ctx)
-			version, err := protocol.GetVersionInfo(ctx, sess)
-			if err == nil {
-				fmt.Fprintf(args.Writer, "version: %v\n", version)
-			}
-			return struct {
-				Version string `json:"version"`
-			}{Version: version}, err
+			return pa.runOperation(ctx, pa.getVersion, args)
 		},
 		"getconfig": func(ctx context.Context, args devices.OperationArgs) (any, error) {
-			ctx, sess := pa.Session(ctx)
-			cfg, err := protocol.GetControllerConfig(ctx, sess)
-			if err == nil {
-				pa.FormatConfig(args.Writer, cfg)
-			}
-			return cfg, err
+			return pa.runOperation(ctx, pa.getConfig, args)
 		},
 		"getstatus": func(ctx context.Context, args devices.OperationArgs) (any, error) {
-			ctx, sess := pa.Session(ctx)
-			status, err := protocol.GetControllerStatus(ctx, sess)
-			if err == nil {
-				pa.FormatStatus(args.Writer, status)
-			}
-			return status, err
+			return pa.runOperation(ctx, pa.getStatus, args)
 		},
 	}
 }
@@ -100,39 +88,76 @@ func (pa *Adapter) OperationsHelp() map[string]string {
 	}
 }
 
-func (pa *Adapter) Connect(ctx context.Context, idle netutil.IdleReset) (protocol.Session, error) {
+func (pa *Adapter) getTimeAndDate(ctx context.Context, sess *protocol.Session, args devices.OperationArgs) (any, error) {
+	t, err := protocol.GetTimeAndDate(ctx, sess)
+	if err == nil {
+		fmt.Fprintf(args.Writer, "gettime: %v\n", t)
+	}
+	return struct {
+		Time string `json:"time"`
+	}{Time: t.String()}, err
+}
+
+func (pa *Adapter) getVersion(ctx context.Context, sess *protocol.Session, args devices.OperationArgs) (any, error) {
+	version, err := protocol.GetVersionInfo(ctx, sess)
+	if err == nil {
+		fmt.Fprintf(args.Writer, "version: %v\n", version)
+	}
+	return struct {
+		Version string `json:"version"`
+	}{Version: version}, err
+}
+
+func (pa *Adapter) getConfig(ctx context.Context, sess *protocol.Session, args devices.OperationArgs) (any, error) {
+	cfg, err := protocol.GetControllerConfig(ctx, sess)
+	if err == nil {
+		pa.FormatConfig(args.Writer, cfg)
+	}
+	return cfg, err
+}
+
+func (pa *Adapter) getStatus(ctx context.Context, sess *protocol.Session, args devices.OperationArgs) (any, error) {
+	status, err := protocol.GetControllerStatus(ctx, sess)
+	if err == nil {
+		pa.FormatStatus(args.Writer, status)
+	}
+	return status, err
+}
+
+func (pa *Adapter) Connect(ctx context.Context, idle netutil.IdleReset) (streamconn.Transport, error) {
 	ctxlog.Info(ctx, "screenlogic: connect: dialing", "ip", pa.ControllerConfigCustom.IPAddress)
-	transport, err := slnet.Dial(ctx, pa.ControllerConfigCustom.IPAddress, pa.Timeout)
+	conn, err := slnet.Dial(ctx, pa.ControllerConfigCustom.IPAddress, pa.Timeout)
 	if err != nil {
 		return nil, err
 	}
-	session := protocol.NewSession(transport, idle)
+	session := protocol.NewSession(pa.mgr.New(conn, idle))
+	defer session.Release()
 	// Connect, there is no authentication for the screenlogic adapters
 	// on a local network.
 	ctxlog.Info(ctx, "screenlogic: connect: logging in", "ip", pa.ControllerConfigCustom.IPAddress)
 	if err := protocol.Login(ctx, session); err != nil {
-		session.Close(ctx)
+		conn.Close(ctx)
 		return nil, err
 	}
 	ctxlog.Info(ctx, "screenlogic: connect: logged in", "ip", pa.ControllerConfigCustom.IPAddress)
-	return session, nil
+	return conn, nil
 }
 
-func (pa *Adapter) Disconnect(ctx context.Context, sess protocol.Session) error {
-	return sess.Close(ctx)
+func (pa *Adapter) Disconnect(ctx context.Context, conn streamconn.Transport) error {
+	return conn.Close(ctx)
 }
 
-func (pa *Adapter) loggingContext(ctx context.Context) context.Context {
-	return ctxlog.WithAttributes(ctx, "protocol", "screenlogic")
-}
-
-func (pa *Adapter) Session(ctx context.Context) (context.Context, protocol.Session) {
-	ctx = pa.loggingContext(ctx)
-	return ctx, pa.ondemand.Connection(ctx)
+func (pa *Adapter) session(ctx context.Context) (context.Context, *protocol.Session, error) {
+	ctx = ctxlog.WithAttributes(ctx, "protocol", "screenlogic")
+	conn, idle, err := pa.ondemand.Connection(ctx)
+	if err != nil {
+		return ctx, nil, err
+	}
+	session := protocol.NewSession(pa.mgr.New(conn, idle))
+	return ctx, session, nil
 }
 
 func (pa *Adapter) Close(ctx context.Context) error {
-	ctx = pa.loggingContext(ctx)
 	return pa.ondemand.Close(ctx)
 }
 

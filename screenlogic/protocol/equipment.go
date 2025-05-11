@@ -53,7 +53,7 @@ func DecodeControllerHardware(controller, hardware uint8) (string, error) {
 	return controllerTypes[controller][hardware].name, nil
 }
 
-func GetControllerConfig(ctx context.Context, s Session) (ControllerConfig, error) {
+func GetControllerConfig(ctx context.Context, s *Session) (ControllerConfig, error) {
 	id := s.NextID()
 	m := NewEmptyMessage(id, MsgGetConfig, 8) // 2 INTs value 0.
 	rm, err := sendAndValidate(ctx, s, m, id, MsgGetConfig)
@@ -185,7 +185,7 @@ type ControllerConfig struct {
 	IntelliFlo []IntelliFlo
 }
 
-func GetControllerStatus(ctx context.Context, s Session) (ControllerStatus, error) {
+func GetControllerStatus(ctx context.Context, s *Session) (ControllerStatus, error) {
 	id := s.NextID()
 	m := NewEmptyMessage(id, MsgGetStatus, 4) // 1 INT value 0.
 	rm, err := sendAndValidate(ctx, s, m, id, MsgGetStatus)
@@ -294,7 +294,7 @@ func (c ControllerConfig) CircuitBytName(name string) Circuit {
 	return Circuit{}
 }
 
-func SetCircuitState(ctx context.Context, s Session, circuitID int, state bool) error {
+func SetCircuitState(ctx context.Context, s *Session, circuitID int, state bool) error {
 	m := NewEmptyMessage(0, MsgButtonPress, 3*4)
 	pl := m.Payload()
 	pl = AppendUint32(pl, 0)
