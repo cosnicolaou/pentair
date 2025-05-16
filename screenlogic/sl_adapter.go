@@ -130,8 +130,10 @@ func (pa *Adapter) Connect(ctx context.Context, idle netutil.IdleReset) (streamc
 	if err != nil {
 		return nil, err
 	}
-	session := protocol.NewSession(pa.mgr.New(conn, idle))
+	ctx, s := pa.mgr.NewWithContext(ctx, conn, idle)
+	session := protocol.NewSession(s)
 	defer session.Release()
+
 	// Connect, there is no authentication for the screenlogic adapters
 	// on a local network.
 	ctxlog.Info(ctx, "screenlogic: connect: logging in", "ip", pa.ControllerConfigCustom.IPAddress)
@@ -153,7 +155,8 @@ func (pa *Adapter) session(ctx context.Context) (context.Context, *protocol.Sess
 	if err != nil {
 		return ctx, nil, err
 	}
-	session := protocol.NewSession(pa.mgr.New(conn, idle))
+	ctx, s := pa.mgr.NewWithContext(ctx, conn, idle)
+	session := protocol.NewSession(s)
 	return ctx, session, nil
 }
 
