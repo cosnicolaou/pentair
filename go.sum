@@ -6,8 +6,6 @@ cloudeng.io/file v0.0.0-20250428223124-bb967ac9f3f8 h1:+UoQbuslTATAty78yj7O5Su27
 cloudeng.io/file v0.0.0-20250428223124-bb967ac9f3f8/go.mod h1:oim2jVljgZXzwJJSywUcdyROOSEvhLjIQvKDv+79tVI=
 cloudeng.io/logging v0.0.0-20250428223124-bb967ac9f3f8 h1:/mGihcZqyJOS3jQOrTEZIzlLiX8gaDaasP736sTOjqY=
 cloudeng.io/logging v0.0.0-20250428223124-bb967ac9f3f8/go.mod h1:D0TUs3Aiwa1c7xI/TE7JITYnICck34r6DR5twakJjIs=
-github.com/cosnicolaou/automation v0.0.0-20250511233718-a4619697aeae h1:vJsyalz06xQcNIBJHLckNM+5LdMkzq3cqSXtx+B2rHg=
-github.com/cosnicolaou/automation v0.0.0-20250511233718-a4619697aeae/go.mod h1:d3KJXO0phiAQ+NtWdMM0HoSBSIRRBFvzuwXjjwAHwDI=
 github.com/cosnicolaou/automation v0.0.0-20250516220144-b6f3bad30206 h1:+OjXV+TucMYsf4jQP0ztSIRZSApa3GvLTBNxEqKCsoM=
 github.com/cosnicolaou/automation v0.0.0-20250516220144-b6f3bad30206/go.mod h1:d3KJXO0phiAQ+NtWdMM0HoSBSIRRBFvzuwXjjwAHwDI=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
