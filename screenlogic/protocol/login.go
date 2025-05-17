@@ -38,20 +38,20 @@ func Login(ctx context.Context, s *Session) error {
 	s.Send(ctx, loginMsg)
 	msg, err := s.ReadUntil(ctx)
 	if err != nil {
-		return fmt.Errorf("Connect:ReadUntil  failed: %w", err)
+		return fmt.Errorf("connect:ReadUntil  failed: %w", err)
 	}
 	rm := Message(msg)
 	if rm.Code() == MsgBadLogin {
-		return fmt.Errorf("Connect: failed: bad login: %w", ErrBadLogin)
+		return fmt.Errorf("connect: failed: bad login: %w", ErrBadLogin)
 	}
 	if err := s.Err(); err != nil {
-		return fmt.Errorf("Connect: unexpected session error: %w", err)
+		return fmt.Errorf("connect: unexpected session error: %w", err)
 	}
 	if err := ValidateResponse(rm, id, MsgLocalLogin); err != nil {
-		return fmt.Errorf("Connect: failed: %w", err)
+		return fmt.Errorf("connect: failed: %w", err)
 	}
 	if err := s.Err(); err != nil {
-		return fmt.Errorf("Connect: unexpected error: %w", err)
+		return fmt.Errorf("connect: unexpected error: %w", err)
 	}
 	return nil
 }
@@ -61,7 +61,7 @@ func GetTimeAndDate(ctx context.Context, s *Session) (time.Time, error) {
 	m := NewEmptyMessage(id, MsgGetDateTime, 0)
 	rm, err := sendAndValidate(ctx, s, m, id, MsgGetDateTime)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("GetTimeAndDate: %w", err)
+		return time.Time{}, fmt.Errorf("getTimeAndDate: %w", err)
 	}
 	return DecodeDateTime(rm)
 }
@@ -71,7 +71,7 @@ func GetVersionInfo(ctx context.Context, s *Session) (string, error) {
 	m := NewEmptyMessage(id, MsgGetVersion, 0)
 	rm, err := sendAndValidate(ctx, s, m, id, MsgGetVersion)
 	if err != nil {
-		return "", fmt.Errorf("GetVersionInfo: %w", err)
+		return "", fmt.Errorf("getVersionInfo: %w", err)
 	}
 	return DecodeVersion(rm), nil
 }
