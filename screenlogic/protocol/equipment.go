@@ -45,10 +45,10 @@ var controllerTypes = [][]hardwareType{
 
 func DecodeControllerHardware(controller, hardware uint8) (string, error) {
 	if controller >= uint8(len(controllerTypes)) {
-		return "", fmt.Errorf("Unknown controller type %d", controller)
+		return "", fmt.Errorf("unknown controller type %d", controller)
 	}
 	if hardware >= uint8(len(controllerTypes[controller])) {
-		return "", fmt.Errorf("Unknown hardware type %d", hardware)
+		return "", fmt.Errorf("unknown hardware type %d", hardware)
 	}
 	return controllerTypes[controller][hardware].name, nil
 }
@@ -58,7 +58,7 @@ func GetControllerConfig(ctx context.Context, s *Session) (ControllerConfig, err
 	m := NewEmptyMessage(id, MsgGetConfig, 8) // 2 INTs value 0.
 	rm, err := sendAndValidate(ctx, s, m, id, MsgGetConfig)
 	if err != nil {
-		return ControllerConfig{}, fmt.Errorf("GetConfig: %w", err)
+		return ControllerConfig{}, fmt.Errorf("getControllerConfig: %w", err)
 	}
 	return DecodeControllerConfig(rm)
 }
@@ -77,7 +77,7 @@ func DecodeControllerConfig(rm Message) (ControllerConfig, error) {
 	pl, ok = DecodeUint8s(pl, ok, &cv, &hw)
 	model, err := DecodeControllerHardware(cv, hw)
 	if err != nil {
-		return ControllerConfig{}, fmt.Errorf("DecodeControllerConfig: %w", err)
+		return ControllerConfig{}, fmt.Errorf("decodeControllerConfig: %w", err)
 	}
 	cfg.Model = model
 	pl, ok = DecodeSkip(pl, ok, 1) // Skip controller data byte
@@ -117,7 +117,7 @@ func DecodeControllerConfig(rm Message) (ControllerConfig, error) {
 		}
 	}
 	if !ok {
-		return ControllerConfig{}, fmt.Errorf("DecodeControllerConfig: message too small: %w", ErrInvalidResponse)
+		return ControllerConfig{}, fmt.Errorf("decodeControllerConfig: message too small: %w", ErrInvalidResponse)
 	}
 
 	// Colors
@@ -134,7 +134,7 @@ func DecodeControllerConfig(rm Message) (ControllerConfig, error) {
 	}
 
 	if !ok {
-		return ControllerConfig{}, fmt.Errorf("DecodeControllerConfig: message too small: %w", ErrInvalidResponse)
+		return ControllerConfig{}, fmt.Errorf("decodeControllerConfig: message too small: %w", ErrInvalidResponse)
 	}
 
 	pumpCount := 8
@@ -147,18 +147,18 @@ func DecodeControllerConfig(rm Message) (ControllerConfig, error) {
 	}
 
 	if !ok {
-		return ControllerConfig{}, fmt.Errorf("DecodeControllerConfig: message too small: %w", ErrInvalidResponse)
+		return ControllerConfig{}, fmt.Errorf("decodeControllerConfig: message too small: %w", ErrInvalidResponse)
 	}
 
 	var flags2, alarms uint32
 	pl, ok = DecodeUint32s(pl, ok, &flags2, &alarms)
 
 	if !ok {
-		return ControllerConfig{}, fmt.Errorf("DecodeControllerConfig: message too small: %w", ErrInvalidResponse)
+		return ControllerConfig{}, fmt.Errorf("decodeControllerConfig: message too small: %w", ErrInvalidResponse)
 	}
 
 	if len(pl) > 0 {
-		return ControllerConfig{}, fmt.Errorf("DecodeControllerConfig: spurious data: %w", ErrInvalidResponse)
+		return ControllerConfig{}, fmt.Errorf("decodeControllerConfig: spurious data: %w", ErrInvalidResponse)
 	}
 
 	return cfg, nil
@@ -190,7 +190,7 @@ func GetControllerStatus(ctx context.Context, s *Session) (ControllerStatus, err
 	m := NewEmptyMessage(id, MsgGetStatus, 4) // 1 INT value 0.
 	rm, err := sendAndValidate(ctx, s, m, id, MsgGetStatus)
 	if err != nil {
-		return ControllerStatus{}, fmt.Errorf("GetConfig: %w", err)
+		return ControllerStatus{}, fmt.Errorf("getControllerStatus: %w", err)
 	}
 	return DecodeControllerStatus(rm)
 }
@@ -215,7 +215,7 @@ func DecodeControllerStatus(rm Message) (ControllerStatus, error) {
 	}
 
 	if !ok {
-		return ControllerStatus{}, fmt.Errorf("DecodeControllerStatus: message too small: %w", ErrInvalidResponse)
+		return ControllerStatus{}, fmt.Errorf("decodeControllerStatus: message too small: %w", ErrInvalidResponse)
 	}
 
 	var circuitCount uint32
@@ -237,11 +237,11 @@ func DecodeControllerStatus(rm Message) (ControllerStatus, error) {
 	status.Alert = int(alert)
 
 	if !ok {
-		return ControllerStatus{}, fmt.Errorf("DecodeControllerStatus: message too small: %w", ErrInvalidResponse)
+		return ControllerStatus{}, fmt.Errorf("decodeControllerStatus: message too small: %w", ErrInvalidResponse)
 	}
 
 	if len(pl) > 0 {
-		return ControllerStatus{}, fmt.Errorf("DecodeControllerStatus: spurious data: %w", ErrInvalidResponse)
+		return ControllerStatus{}, fmt.Errorf("decodeControllerStatus: spurious data: %w", ErrInvalidResponse)
 	}
 
 	return status, nil
@@ -307,10 +307,10 @@ func SetCircuitState(ctx context.Context, s *Session, circuitID int, state bool)
 	id := s.NextID()
 	rm, err := sendAndValidate(ctx, s, m, id, MsgButtonPress)
 	if err != nil {
-		return fmt.Errorf("SetCircuitState: %w", err)
+		return fmt.Errorf("setCircuitState: %w", err)
 	}
 	if len(rm.Payload()) != 0 {
-		return fmt.Errorf("SetCircuitState: unexpected response: %w", ErrInvalidResponse)
+		return fmt.Errorf("setCircuitState: unexpected response: %w", ErrInvalidResponse)
 	}
 	return nil
 }
